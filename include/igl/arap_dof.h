@@ -26,7 +26,7 @@ namespace igl
   //   arap_dof_update(...)
   // end
   
-  template <typename LbsMatrixType, typename SSCALAR>
+  template <typename LbsMatrixType, typename Scalar, typename SSCALAR>
   struct ArapDOFData;
   
   ///////////////////////////////////////////////////////////////////////////
@@ -83,13 +83,13 @@ namespace igl
   // Returns true on success, false on error
   //
   // See also: lbs_matrix_column
-  template <typename LbsMatrixType, typename SSCALAR>
+  template <typename Scalar, typename LbsMatrixType, typename SSCALAR>
   IGL_INLINE bool arap_dof_precomputation(
-    const Eigen::MatrixXd & V, 
+    const Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> & V,
     const Eigen::MatrixXi & F,
     const LbsMatrixType & M,
     const Eigen::Matrix<int,Eigen::Dynamic,1> & G,
-    ArapDOFData<LbsMatrixType, SSCALAR> & data);
+    ArapDOFData<LbsMatrixType, Scalar, SSCALAR> & data);
   
   // Should always be called after arap_dof_precomputation, but may be called in
   // between successive calls to arap_dof_update, recomputes precomputation
@@ -112,10 +112,10 @@ namespace igl
   // Returns true on success, false on error
   //
   // See also: lbs_matrix_column
-  template <typename LbsMatrixType, typename SSCALAR>
+  template <typename LbsMatrixType, typename Scalar, typename SSCALAR>
   IGL_INLINE bool arap_dof_recomputation(
     const Eigen::Matrix<int,Eigen::Dynamic,1> & fixed_dim,
-    const Eigen::SparseMatrix<double> & A_eq,
+    const Eigen::SparseMatrix<Scalar> & A_eq,
     ArapDOFData<LbsMatrixType, SSCALAR> & data);
   
   // Optimizes the transformations attached to each weight function based on
@@ -134,19 +134,19 @@ namespace igl
   // Outputs:
   //   L  #handles * dim * dim+1 list of final optimized transformation entries,
   //     allowed to be the same as L
-  template <typename LbsMatrixType, typename SSCALAR>
+  template <typename LbsMatrixType, typename Scalar, typename SSCALAR>
   IGL_INLINE bool arap_dof_update(
-    const ArapDOFData<LbsMatrixType,SSCALAR> & data,
-    const Eigen::Matrix<double,Eigen::Dynamic,1> & B_eq,
-    const Eigen::MatrixXd & L0,
+    const ArapDOFData<LbsMatrixType, Scalar, SSCALAR> & data,
+    const Eigen::Matrix<Scalar,Eigen::Dynamic,1> & B_eq,
+    const Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> & L0,
     const int max_iters,
-    const double tol,
-    Eigen::MatrixXd & L
+    const Scalar tol,
+    Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> & L
     );
   
   // Structure that contains fields for all precomputed data or data that needs
   // to be remembered at update
-  template <typename LbsMatrixType, typename SSCALAR>
+  template <typename LbsMatrixType, typename Scalar, typename SSCALAR>
   struct ArapDOFData
   {
     typedef Eigen::Matrix<SSCALAR, Eigen::Dynamic, Eigen::Dynamic> MatrixXS;
@@ -154,13 +154,13 @@ namespace igl
     igl::ARAPEnergyType energy;
     //// LU decomposition precomptation data; note: not used by araf_dop_update
     //// any more, replaced by M_FullSolve
-    //igl::min_quad_with_fixed_data<double> lu_data;
+    //igl::min_quad_with_fixed_data<Scalar> lu_data;
     // List of indices of fixed transformation entries
     Eigen::Matrix<int,Eigen::Dynamic,1> fixed_dim;
     // List of precomputed covariance scatter matrices multiplied by lbs
     // matrices
-    //std::vector<Eigen::SparseMatrix<double> > CSM_M;
-    std::vector<Eigen::MatrixXd> CSM_M;
+    //std::vector<Eigen::SparseMatrix<Scalar> > CSM_M;
+    std::vector<Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>> CSM_M;
     LbsMatrixType M_KG;
     // Number of mesh vertices
     int n;
@@ -178,7 +178,7 @@ namespace igl
   
   
     //// Solve matrix for the global step
-    //Eigen::MatrixXd M_Solve; // TODO: remove from here
+    //Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M_Solve; // TODO: remove from here
   
     // Full solve matrix that contains also conversion from rotations to the right hand side, 
     // i.e., solves Poisson transformations just from rotations and positional constraints
@@ -197,7 +197,7 @@ namespace igl
     // the purpose of this function-based coding style...
   
     // Time step
-    double h;
+    Scalar h;
   
     // L0  #handles * dim * dim+1 list of transformation entries from
     // previous solve
@@ -216,11 +216,11 @@ namespace igl
     LbsMatrixType Mass_tilde;
   
     // Force due to gravity (premultiplier)
-    Eigen::MatrixXd fgrav;
+    Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> fgrav;
     // Direction of gravity
-    Eigen::Vector3d grav_dir;
+    Eigen::Matrix<Scalar, 3, 1> grav_dir;
     // Magnitude of gravity
-    double grav_mag;
+    Scalar grav_mag;
     
     // Π1 from the paper
     MatrixXS Pi_1;

@@ -36,13 +36,13 @@
 
 // A careful derivation of this implementation is given in the corresponding
 // matlab function arap_dof.m
-template <typename LbsMatrixType, typename SSCALAR>
+template <typename LbsMatrixType, typename Scalar, typename SSCALAR>
 IGL_INLINE bool igl::arap_dof_precomputation(
-  const Eigen::MatrixXd & V, 
+  const Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> & V,
   const Eigen::MatrixXi & F,
   const LbsMatrixType & M,
   const Eigen::Matrix<int,Eigen::Dynamic,1> & G,
-  ArapDOFData<LbsMatrixType, SSCALAR> & data)
+  ArapDOFData<LbsMatrixType, Scalar, SSCALAR> & data)
 {
   using namespace Eigen;
   typedef Matrix<SSCALAR, Dynamic, Dynamic> MatrixXS;
@@ -73,11 +73,11 @@ IGL_INLINE bool igl::arap_dof_precomputation(
   //printf("n=%d; dim=%d; m=%d;\n",n,data.dim,data.m);
 
   // Build cotangent laplacian
-  SparseMatrix<double> Lcot;
+  SparseMatrix<Scalar> Lcot;
   //printf("cotmatrix()\n");
   cotmatrix(V,F,Lcot);
   // Discrete laplacian (should be minus matlab version)
-  SparseMatrix<double> Lapl = -2.0*Lcot;
+  SparseMatrix<Scalar> Lapl = -2.0*Lcot;
 #ifdef EXTREME_VERBOSE
   cout<<"LaplIJV=["<<endl;print_ijv(Lapl,1);cout<<endl<<"];"<<
     endl<<"Lapl=sparse(LaplIJV(:,1),LaplIJV(:,2),LaplIJV(:,3),"<<
@@ -86,7 +86,7 @@ IGL_INLINE bool igl::arap_dof_precomputation(
 
   // Get group sum scatter matrix, when applied sums all entries of the same
   // group according to G
-  SparseMatrix<double> G_sum;
+  SparseMatrix<Scalar> G_sum;
   if(G.size() == 0)
   {
     speye(n,G_sum);
@@ -120,7 +120,7 @@ IGL_INLINE bool igl::arap_dof_precomputation(
 
   // Get covariance scatter matrix, when applied collects the covariance matrices
   // used to fit rotations to during optimization
-  SparseMatrix<double> CSM;
+  SparseMatrix<Scalar> CSM;
   //printf("covariance_scatter_matrix()\n");
   covariance_scatter_matrix(V,F,data.energy,CSM);
 #ifdef EXTREME_VERBOSE
@@ -147,7 +147,7 @@ IGL_INLINE bool igl::arap_dof_precomputation(
   // S((k-1)*dim + 1:dim,:)
 
   // Apply group sum to each dimension's block of covariance scatter matrix
-  SparseMatrix<double> G_sum_dim;
+  SparseMatrix<Scalar> G_sum_dim;
   repdiag(G_sum,data.dim,G_sum_dim);
   CSM = (G_sum_dim * CSM).eval();
 #ifdef EXTREME_VERBOSE
@@ -189,7 +189,7 @@ IGL_INLINE bool igl::arap_dof_precomputation(
     assert(data.CSM_M[i].cols() == M.cols());
     for(int j = 0;j<data.dim;j++)
     {
-      SparseMatrix<double> CSMj;
+      SparseMatrix<Scalar> CSMj;
       //printf("CSM_M(): slice\n");
       slice(
         CSM,
@@ -203,7 +203,7 @@ IGL_INLINE bool igl::arap_dof_precomputation(
       {
         // Convert to full
         //printf("CSM_M(): full\n");
-        MatrixXd CSMjM_ifull(CSMjM_i);
+        Matrix<Scalar, Dynamic, Dynamic> CSMjM_ifull(CSMjM_i);
 //        printf("CSM_M[%d]: %d %d\n",i,data.CSM_M[i].rows(),data.CSM_M[i].cols());
 //        printf("CSM_M[%d].block(%d*%d=%d,0,%d,%d): %d %d\n",i,j,k,CSMjM_i.rows(),CSMjM_i.cols(),
 //            data.CSM_M[i].block(j*k,0,CSMjM_i.rows(),CSMjM_i.cols()).rows(),
@@ -223,7 +223,7 @@ IGL_INLINE bool igl::arap_dof_precomputation(
 
   // precompute arap_rhs matrix
   //printf("arap_rhs()\n");
-  SparseMatrix<double> K;
+  SparseMatrix<Scalar> K;
   arap_rhs(V,F,V.cols(),data.energy,K);
 //#ifdef EXTREME_VERBOSE
 //  cout<<"KIJV=["<<endl;print_ijv(K,1);cout<<endl<<"];"<<
@@ -231,8 +231,8 @@ IGL_INLINE bool igl::arap_dof_precomputation(
 //    K.rows()<<","<<K.cols()<<");"<<endl;
 //#endif
   // Precompute left muliplication by M and right multiplication by G_sum
-  SparseMatrix<double> G_sumT = G_sum.transpose();
-  SparseMatrix<double> G_sumT_dim_dim;
+  SparseMatrix<Scalar> G_sumT = G_sum.transpose();
+  SparseMatrix<Scalar> G_sumT_dim_dim;
   repdiag(G_sumT,data.dim*data.dim,G_sumT_dim_dim);
   LbsMatrixType MT = M.transpose();
   // If this is a bottle neck then consider reordering matrix multiplication
@@ -245,7 +245,7 @@ IGL_INLINE bool igl::arap_dof_precomputation(
 
   // Precompute system matrix
   //printf("A()\n");
-  SparseMatrix<double> A;
+  SparseMatrix<Scalar> A;
   repdiag(Lapl,data.dim,A);
   data.Q = MT * (A * M);
 //#ifdef EXTREME_VERBOSE
@@ -258,19 +258,19 @@ IGL_INLINE bool igl::arap_dof_precomputation(
   //if(data.with_dynamics)
   //{
     // Build cotangent laplacian
-    SparseMatrix<double> Mass;
+    SparseMatrix<Scalar> Mass;
     //printf("massmatrix()\n");
     massmatrix(V,F,(F.cols()>3?MASSMATRIX_TYPE_BARYCENTRIC:MASSMATRIX_TYPE_VORONOI),Mass);
     //cout<<"MIJV=["<<endl;print_ijv(Mass,1);cout<<endl<<"];"<<
     //  endl<<"M=sparse(MIJV(:,1),MIJV(:,2),MIJV(:,3),"<<
     //  Mass.rows()<<","<<Mass.cols()<<");"<<endl;
     //speye(data.n,Mass);
-    SparseMatrix<double> Mass_rep;
+    SparseMatrix<Scalar> Mass_rep;
     repdiag(Mass,data.dim,Mass_rep);
 
     // Multiply either side by weights matrix (should be dense)
     data.Mass_tilde = MT * Mass_rep * M;
-    MatrixXd ones(data.dim*data.n,data.dim);
+    Matrix<Scalar, Dynamic, Dynamic> ones(data.dim*data.n,data.dim);
     for(int i = 0;i<data.n;i++)
     {
       for(int d = 0;d<data.dim;d++)
@@ -495,7 +495,7 @@ namespace igl
 template <typename LbsMatrixType, typename SSCALAR>
 IGL_INLINE bool igl::arap_dof_recomputation(
   const Eigen::Matrix<int,Eigen::Dynamic,1> & fixed_dim,
-  const Eigen::SparseMatrix<double> & A_eq,
+  const Eigen::SparseMatrix<Scalar> & A_eq,
   ArapDOFData<LbsMatrixType, SSCALAR> & data)
 {
   using namespace Eigen;
@@ -544,16 +544,16 @@ IGL_INLINE bool igl::arap_dof_recomputation(
 
   // Compute dense solve matrix (alternative of matrix factorization)
   //printf("min_quad_dense_precompute()\n");
-  MatrixXd Qfull(*Q);
-  MatrixXd A_eqfull(A_eq);
-  MatrixXd M_Solve;
+  Matrix<Scalar, Dynamic, Dynamic> Qfull(*Q);
+  Matrix<Scalar, Dynamic, Dynamic> A_eqfull(A_eq);
+  Matrix<Scalar, Dynamic, Dynamic> M_Solve;
 
-  double timer0_start = get_seconds_hires();
+  Scalar timer0_start = get_seconds_hires();
   bool use_lu = data.effective_dim != 2;
   //use_lu = false;
   //printf("use_lu: %s\n",(use_lu?"TRUE":"FALSE"));
   min_quad_dense_precompute(Qfull, A_eqfull, use_lu,M_Solve);
-  double timer0_end = get_seconds_hires();
+  Scalar timer0_end = get_seconds_hires();
   verbose("Bob timing: %.20f\n", (timer0_end - timer0_start)*1000.0);
 
   // Precompute full solve matrix:
@@ -598,25 +598,25 @@ IGL_INLINE bool igl::arap_dof_recomputation(
   return true;
 }
 
-template <typename LbsMatrixType, typename SSCALAR>
+template <typename LbsMatrixType, typename Scalar, typename SSCALAR>
 IGL_INLINE bool igl::arap_dof_update(
-  const ArapDOFData<LbsMatrixType, SSCALAR> & data,
-  const Eigen::Matrix<double,Eigen::Dynamic,1> & B_eq,
-  const Eigen::MatrixXd & L0,
+  const ArapDOFData<LbsMatrixType, Scalar, SSCALAR> & data,
+  const Eigen::Matrix<Scalar,Eigen::Dynamic,1> & B_eq,
+  const Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> & L0,
   const int max_iters,
-  const double 
+  const Scalar
 #ifdef IGL_ARAP_DOF_FIXED_ITERATIONS_COUNT
   tol,
 #else
   /*tol*/,
 #endif
-  Eigen::MatrixXd & L
+  Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> & L
   )
 {
   using namespace Eigen;
   typedef Matrix<SSCALAR, Dynamic, Dynamic> MatrixXS;
 #ifdef ARAP_GLOBAL_TIMING
-  double timer_start = get_seconds_hires();
+  Scalar timer_start = get_seconds_hires();
 #endif
 
   // number of dimensions
@@ -626,7 +626,7 @@ IGL_INLINE bool igl::arap_dof_update(
   assert(tol >= 0);
 
   // timing variables
-  double 
+  Scalar
     sec_start, 
     sec_covGather, 
     sec_fitRotations, 
@@ -656,12 +656,12 @@ IGL_INLINE bool igl::arap_dof_update(
   // Keep track of last solution
   MatrixXS L_prev;
 #endif
-  // We will be iterating on L_SSCALAR, only at the end we convert back to double
+  // We will be iterating on L_SSCALAR, only at the end we convert back to Scalar
   MatrixXS L_SSCALAR = L.cast<SSCALAR>();
 
   int iters = 0;
 #ifndef IGL_ARAP_DOF_FIXED_ITERATIONS_COUNT
-  double max_diff = tol+1;  
+  Scalar max_diff = tol+1;
 #endif
 
   MatrixXS S(k*data.dim,data.dim);
@@ -686,7 +686,7 @@ IGL_INLINE bool igl::arap_dof_update(
   MatrixXS L_part1(data.dim * (data.dim + 1) * data.m, 1);
 
 #ifdef ARAP_GLOBAL_TIMING
-    double timer_prepFinished = get_seconds_hires();
+    Scalar timer_prepFinished = get_seconds_hires();
 #endif
 
 #ifdef IGL_ARAP_DOF_FIXED_ITERATIONS_COUNT
@@ -799,13 +799,13 @@ IGL_INLINE bool igl::arap_dof_update(
           ( (-1.0/(data.h*data.h)) * data.L0.array() + 
             (1.0/(data.h)) * data.Lvel0.array()
             ).matrix();
-      MatrixXd temp_d = temp.template cast<double>();
+      Matrix<Scalar, Dynamic, Dynamic> temp_d = temp.template cast<Scalar>();
 
-      MatrixXd temp_g = data.fgrav*(data.grav_mag*data.grav_dir);
+      Matrix<Scalar, Dynamic, Dynamic> temp_g = data.fgrav*(data.grav_mag*data.grav_dir);
 
       assert(data.fext.rows() == temp_g.rows());
       assert(data.fext.cols() == temp_g.cols());
-      MatrixXd temp2 = data.Mass_tilde * temp_d + temp_g + data.fext.template cast<double>();
+      Matrix<Scalar, Dynamic, Dynamic> temp2 = data.Mass_tilde * temp_d + temp_g + data.fext.template cast<Scalar>();
       MatrixXS temp2_f = temp2.template cast<SSCALAR>();
       L_part1_dyn = data.Pi_1 * temp2_f;
       L_part1.array() = L_part1.array() + L_part1_dyn.array();
@@ -857,11 +857,11 @@ IGL_INLINE bool igl::arap_dof_update(
   }
 
 
-  L = L_SSCALAR.template cast<double>();
+  L = L_SSCALAR.template cast<Scalar>();
   assert(L.cols() == 1);
 
 #ifdef ARAP_GLOBAL_TIMING
-  double timer_finito = get_seconds_hires();
+  Scalar timer_finito = get_seconds_hires();
   printf(
     "ARAP preparation = %f, "
     "all %i iterations = %f [ms]\n", 

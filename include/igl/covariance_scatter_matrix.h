@@ -25,11 +25,12 @@ namespace igl
   //   CSM dim*#V/#F by dim*#V sparse matrix containing special laplacians along
   //     the diagonal so that when multiplied by V gives covariance matrix
   //     elements, can be used to speed up covariance matrix computation
+  template<typename Scalar>
   IGL_INLINE void covariance_scatter_matrix(
-    const Eigen::MatrixXd & V, 
+    const Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> & V,
     const Eigen::MatrixXi & F,
     const ARAPEnergyType energy,
-    Eigen::SparseMatrix<double>& CSM);
+    Eigen::SparseMatrix<Scalar>& CSM);
 }
 
 #ifndef IGL_STATIC_LIBRARY

@@ -15,6 +15,7 @@
 
 namespace igl
 {
+  template<typename Scalar>
   struct ARAPData
   {
     // n  #V
@@ -37,13 +38,13 @@ namespace igl
     Eigen::VectorXi G;
     ARAPEnergyType energy;
     bool with_dynamics;
-    Eigen::MatrixXd f_ext,vel;
-    double h;
-    double ym;
+    Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> f_ext,vel;
+    Scalar h;
+    Scalar ym;
     int max_iter;
-    Eigen::SparseMatrix<double> K,M;
-    Eigen::SparseMatrix<double> CSM;
-    min_quad_with_fixed_data<double> solver_data;
+    Eigen::SparseMatrix<Scalar> K,M;
+    Eigen::SparseMatrix<Scalar> CSM;
+    min_quad_with_fixed_data<Scalar> solver_data;
     Eigen::VectorXi b;
     int dim;
       ARAPData():
@@ -83,7 +84,7 @@ namespace igl
     const Eigen::PlainObjectBase<DerivedF> & F,
     const int dim,
     const Eigen::PlainObjectBase<Derivedb> & b,
-    ARAPData & data);
+    ARAPData<typename DerivedV::Scalar> & data);
   // Inputs:
   //   bc  #b by dim list of boundary conditions
   //   data  struct containing necessary precomputation and parameters
@@ -93,7 +94,7 @@ namespace igl
     typename DerivedU>
   IGL_INLINE bool arap_solve(
     const Eigen::PlainObjectBase<Derivedbc> & bc,
-    ARAPData & data,
+    ARAPData<typename DerivedU::Scalar> & data,
     Eigen::PlainObjectBase<DerivedU> & U);
 };
 

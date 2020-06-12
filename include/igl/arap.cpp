@@ -31,11 +31,13 @@ IGL_INLINE bool igl::arap_precomputation(
   const Eigen::PlainObjectBase<DerivedF> & F,
   const int dim,
   const Eigen::PlainObjectBase<Derivedb> & b,
-  ARAPData & data)
+  ARAPData<typename DerivedV::Scalar> & data)
 {
   using namespace std;
   using namespace Eigen;
   typedef typename DerivedV::Scalar Scalar;
+  typedef typename Matrix<Scalar, Dynamic, Dynamic> MatrixS;
+
   // number of vertices
   const int n = V.rows();
   data.n = n;
@@ -50,14 +52,14 @@ IGL_INLINE bool igl::arap_precomputation(
   data.dim = dim;
   //assert(dim == 3 && "Only 3d supported");
   // Defaults
-  data.f_ext = MatrixXd::Zero(n,data.dim);
+  data.f_ext = MatrixS::Zero(n,data.dim);
 
   assert(data.dim <= V.cols() && "solve dim should be <= embedding");
   bool flat = (V.cols() - data.dim)==1;
 
   DerivedV plane_V;
   DerivedF plane_F;
-  typedef SparseMatrix<Scalar> SparseMatrixS;
+  typedef SparseMatrix<DerivedV::Scalar> SparseMatrixS;
   SparseMatrixS ref_map,ref_map_dim;
   if(flat)
   {
@@ -94,7 +96,7 @@ IGL_INLINE bool igl::arap_precomputation(
 
   // Get covariance scatter matrix, when applied collects the covariance
   // matrices used to fit rotations to during optimization
-  covariance_scatter_matrix(ref_V,ref_F,eff_energy,data.CSM);
+  covariance_scatter_matrix<Scalar>(ref_V,ref_F,eff_energy,data.CSM);
   if(flat)
   {
     data.CSM = (data.CSM * ref_map_dim.transpose()).eval();
@@ -103,7 +105,7 @@ IGL_INLINE bool igl::arap_precomputation(
 
   // Get group sum scatter matrix, when applied sums all entries of the same
   // group according to G
-  SparseMatrix<double> G_sum;
+  SparseMatrixS G_sum;
   if(data.G.size() == 0)
   {
     if(eff_energy == ARAP_ENERGY_TYPE_ELEMENTS)
@@ -132,7 +134,7 @@ IGL_INLINE bool igl::arap_precomputation(
     //printf("group_sum_matrix()\n");
     group_sum_matrix(data.G,G_sum);
   }
-  SparseMatrix<double> G_sum_dim;
+  SparseMatrixS G_sum_dim;
   repdiag(G_sum,data.dim,G_sum_dim);
   assert(G_sum_dim.cols() == data.CSM.rows());
   data.CSM = (G_sum_dim * data.CSM).eval();
@@ -145,24 +147,24 @@ IGL_INLINE bool igl::arap_precomputation(
   }
   assert(data.K.rows() == data.n*data.dim);
 
-  SparseMatrix<double> Q = (-L).eval();
+  SparseMatrixS Q = (-L).eval();
 
   if(data.with_dynamics)
   {
-    const double h = data.h;
+    const Scalar h = data.h;
     assert(h != 0);
-    SparseMatrix<double> M;
+    SparseMatrixS M;
     massmatrix(V,F,MASSMATRIX_TYPE_DEFAULT,data.M);
-    const double dw = (1./data.ym)*(h*h);
-    SparseMatrix<double> DQ = dw * 1./(h*h)*data.M;
+    const Scalar dw = (1./data.ym)*(h*h);
+    SparseMatrixS DQ = dw * 1./(h*h)*data.M;
     Q += DQ;
     // Dummy external forces
-    data.f_ext = MatrixXd::Zero(n,data.dim);
-    data.vel = MatrixXd::Zero(n,data.dim);
+    data.f_ext = MatrixS::Zero(n,data.dim);
+    data.vel = MatrixS::Zero(n,data.dim);
   }
 
   return min_quad_with_fixed_precompute(
-    Q,b,SparseMatrix<double>(),true,data.solver_data);
+    Q,b,SparseMatrixS(),true,data.solver_data);
 }
 
 template <
@@ -170,12 +172,16 @@ template <
   typename DerivedU>
 IGL_INLINE bool igl::arap_solve(
   const Eigen::PlainObjectBase<Derivedbc> & bc,
-  ARAPData & data,
+  ARAPData<typename DerivedU::Scalar> & data,
   Eigen::PlainObjectBase<DerivedU> & U)
 {
   using namespace Eigen;
   using namespace std;
-  assert(data.b.size() == bc.rows());
+  typedef typename DerivedU::Scalar Scalar;
+  typedef typename Matrix<Scalar, Dynamic, Dynamic> MatrixS;
+  typedef typename Matrix<Scalar, Dynamic, 1> VectorS;
+
+	assert(data.b.size() == bc.rows());
   if(bc.size() > 0)
   {
     assert(bc.cols() == data.dim && "bc.cols() match data.dim");
@@ -188,15 +194,15 @@ IGL_INLINE bool igl::arap_solve(
 #ifndef NDEBUG
     cerr<<"arap_solve: Using terrible initial guess for U. Try U = V."<<endl;
 #endif
-    U = MatrixXd::Zero(data.n,data.dim);
+    U = MatrixS::Zero(data.n,data.dim);
   }else
   {
     assert(U.cols() == data.dim && "U.cols() match data.dim");
   }
   // changes each arap iteration
-  MatrixXd U_prev = U;
+  MatrixS U_prev = U;
   // doesn't change for fixed with_dynamics timestep
-  MatrixXd U0;
+  MatrixS U0;
   if(data.with_dynamics)
   {
     U0 = U_prev;
@@ -213,13 +219,13 @@ IGL_INLINE bool igl::arap_solve(
     const auto & Udim = U.replicate(data.dim,1);
     assert(U.cols() == data.dim);
     // As if U.col(2) was 0
-    MatrixXd S = data.CSM * Udim;
+    MatrixS S = data.CSM * Udim;
     // THIS NORMALIZATION IS IMPORTANT TO GET SINGLE PRECISION SVD CODE TO WORK
     // CORRECTLY.
     S /= S.array().abs().maxCoeff();
 
     const int Rdim = data.dim;
-    MatrixXd R(Rdim,data.CSM.rows());
+    MatrixS R(Rdim,data.CSM.rows());
     if(R.rows() == 2)
     {
       fit_rotations_planar(S,R);
@@ -234,14 +240,14 @@ IGL_INLINE bool igl::arap_solve(
     }
     //for(int k = 0;k<(data.CSM.rows()/dim);k++)
     //{
-    //  R.block(0,dim*k,dim,dim) = MatrixXd::Identity(dim,dim);
+    //  R.block(0,dim*k,dim,dim) = MatrixS::Identity(dim,dim);
     //}
 
 
     // Number of rotations: #vertices or #elements
     int num_rots = data.K.cols()/Rdim/Rdim;
     // distribute group rotations to vertices in each group
-    MatrixXd eff_R;
+    MatrixS eff_R;
     if(data.G.size() == 0)
     {
       // copy...
@@ -256,29 +262,29 @@ IGL_INLINE bool igl::arap_solve(
       }
     }
 
-    MatrixXd Dl;
+    MatrixS Dl;
     if(data.with_dynamics)
     {
       assert(data.M.rows() == n &&
         "No mass matrix. Call arap_precomputation if changing with_dynamics");
-      const double h = data.h;
+      const Scalar h = data.h;
       assert(h != 0);
       //Dl = 1./(h*h*h)*M*(-2.*V0 + Vm1) - fext;
       // data.vel = (V0-Vm1)/h
       // h*data.vel = (V0-Vm1)
       // -h*data.vel = -V0+Vm1)
       // -V0-h*data.vel = -2V0+Vm1
-      const double dw = (1./data.ym)*(h*h);
+      const Scalar dw = (1./data.ym)*(h*h);
       Dl = dw * (1./(h*h)*data.M*(-U0 - h*data.vel) - data.f_ext);
     }
 
-    VectorXd Rcol;
+    VectorS Rcol;
     columnize(eff_R,num_rots,2,Rcol);
-    VectorXd Bcol = -data.K * Rcol;
+    VectorS Bcol = -data.K * Rcol;
     assert(Bcol.size() == data.n*data.dim);
     for(int c = 0;c<data.dim;c++)
     {
-      VectorXd Uc,Bc,bcc,Beq;
+      VectorS Uc,Bc,bcc,Beq;
       Bc = Bcol.block(c*n,0,n,1);
       if(data.with_dynamics)
       {

@@ -92,7 +92,7 @@ IGL_INLINE void igl::arap_linear_block_spokes(
     {
       int source = F(i,edges(e,0));
       int dest = F(i,edges(e,1));
-      double v = 0.5*C(i,e)*(V(source,d)-V(dest,d));
+      Scalar v = 0.5*C(i,e)*(V(source,d)-V(dest,d));
       Kd_IJV.push_back(Triplet<Scalar>(source,dest,v));
       Kd_IJV.push_back(Triplet<Scalar>(dest,source,-v));
       Kd_IJV.push_back(Triplet<Scalar>(source,source,v));
@@ -161,7 +161,7 @@ IGL_INLINE void igl::arap_linear_block_spokes_and_rims(
     {
       int source = F(i,edges(e,0));
       int dest = F(i,edges(e,1));
-      double v = C(i,e)*(V(source,d)-V(dest,d))/3.0;
+      Scalar v = C(i,e)*(V(source,d)-V(dest,d))/3.0;
       // loop over edges again
       for(int f = 0;f<edges.rows();f++)
       {
@@ -242,7 +242,7 @@ IGL_INLINE void igl::arap_linear_block_elements(
     {
       int source = F(i,edges(e,0));
       int dest = F(i,edges(e,1));
-      double v = C(i,e)*(V(source,d)-V(dest,d));
+      Scalar v = C(i,e)*(V(source,d)-V(dest,d));
       Kd_IJV.push_back(Triplet<Scalar>(source,i,v));
       Kd_IJV.push_back(Triplet<Scalar>(dest,i,-v));
     }
