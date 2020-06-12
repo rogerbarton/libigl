@@ -35,7 +35,7 @@ IGL_INLINE bool igl::arap_precomputation(
 {
   using namespace std;
   using namespace Eigen;
-  typedef DerivedV::Scalar Scalar;
+  typedef typename DerivedV::Scalar Scalar;
   typedef Matrix<Scalar, Dynamic, Dynamic> MatrixS;
 
   // number of vertices
@@ -177,7 +177,7 @@ IGL_INLINE bool igl::arap_solve(
 {
   using namespace Eigen;
   using namespace std;
-  typedef DerivedU::Scalar Scalar;
+  typedef typename DerivedU::Scalar Scalar;
   typedef Matrix<Scalar, Dynamic, Dynamic> MatrixS;
   typedef Matrix<Scalar, Dynamic, 1> VectorS;
 
