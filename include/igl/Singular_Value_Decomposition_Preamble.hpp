@@ -70,7 +70,7 @@ inline float rsqrt(const float f)
 #include <cmath>
 inline float rsqrt(const float f)
 {
-  return 1./sqrtf(f);
+  return 1.f/sqrtf(f);
 }
 #endif
 #endif
