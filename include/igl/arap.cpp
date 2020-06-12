@@ -35,8 +35,8 @@ IGL_INLINE bool igl::arap_precomputation(
 {
   using namespace std;
   using namespace Eigen;
-  typedef typename DerivedV::Scalar Scalar;
-  typedef typename Matrix<Scalar, Dynamic, Dynamic> MatrixS;
+  typedef DerivedV::Scalar Scalar;
+  typedef Matrix<Scalar, Dynamic, Dynamic> MatrixS;
 
   // number of vertices
   const int n = V.rows();
@@ -177,9 +177,9 @@ IGL_INLINE bool igl::arap_solve(
 {
   using namespace Eigen;
   using namespace std;
-  typedef typename DerivedU::Scalar Scalar;
-  typedef typename Matrix<Scalar, Dynamic, Dynamic> MatrixS;
-  typedef typename Matrix<Scalar, Dynamic, 1> VectorS;
+  typedef DerivedU::Scalar Scalar;
+  typedef Matrix<Scalar, Dynamic, Dynamic> MatrixS;
+  typedef Matrix<Scalar, Dynamic, 1> VectorS;
 
 	assert(data.b.size() == bc.rows());
   if(bc.size() > 0)
