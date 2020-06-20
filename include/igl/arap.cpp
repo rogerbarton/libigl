@@ -59,7 +59,7 @@ IGL_INLINE bool igl::arap_precomputation(
 
   DerivedV plane_V;
   DerivedF plane_F;
-  typedef SparseMatrix<DerivedV::Scalar> SparseMatrixS;
+  typedef SparseMatrix<typename DerivedV::Scalar> SparseMatrixS;
   SparseMatrixS ref_map,ref_map_dim;
   if(flat)
   {
